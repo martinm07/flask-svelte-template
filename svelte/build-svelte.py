@@ -3,6 +3,8 @@ import os
 import shutil
 import re
 
+if not os.environ.get('FLASK_APP'):
+    raise Exception("Environment variable \"FLASK_APP\" is not set. Please set it to relevant value to run the Flask app (e.g. \"flask-app\".")
 STATIC_PATH = os.path.abspath('./../' + os.environ.get('FLASK_APP') + '/static/')
 TEMPLATES_PATH = os.path.abspath('./../' + os.environ.get('FLASK_APP') + '/templates/')
 
