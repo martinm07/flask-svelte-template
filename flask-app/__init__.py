@@ -1,8 +1,6 @@
-from cgi import test
 import os
 
 from flask import Flask
-from flask_jsglue import JSGlue
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
@@ -19,9 +17,7 @@ def create_app(test_config=None):
     try:
         os.makedirs(app.instance_path)
     except OSError:
-        pass
-
-    jsglue = JSGlue(app)    
+        pass 
     
     from . import db
     db.init_app(app)

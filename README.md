@@ -53,6 +53,8 @@ unibeautifyrc.yaml
 To better sort concerns, we have general "sections" of the website, containing related pages.
 In the above example that would be "intro" and "auth", with "intro" having the "about" page.
 
+### Rules
+
 In `svelte/src/` the directories must be the section names, which must be the exact same names
 as the directories in `my-flask-app/templates/` which must be the same as in `my-flask-app/static/`.<br>
 In `svelte/src/<section-name>/` the directories must be the desired names of the `.html` files
@@ -107,11 +109,11 @@ and do development using test/placeholder values. Something like this, for examp
   <script>
     let getUser, getNotifs, posts;
     try {
+      if (!Number.parseInt("{{ 1 }}")) throw new Error("Jinja wasn't parsed.");
+
       getUser = "{{ url_for('auth.get_active') }}";
       getNotifs = "{{ url_for('blog.get_notifs', user=current_user.id) }}";
       posts = "{{ posts }}";
-
-      if (!Number.parseInt("{{ 1 }}")) throw new Error("Jinja wasn't parsed.");
     } catch (e) {
       return;
     }
@@ -129,7 +131,7 @@ posts ??= [
 ];
 
 // and then fetches later on as they show up:
-const res = (await getNotifs) ? fetch(getNotifs) : timeout(3, ["blah blah..."]);
+const res = await (getNotifs ? fetch(getNotifs) : timeout(3, ["blah blah..."]));
 
 function timeout(s, data) {
   return new Promise(function (resolve, _) {
@@ -148,8 +150,25 @@ Anyways, once you'd like to move your new views into the Flask server, simply ru
 This will build the Svelte into regular Javascript and do all the annoying stuff like deleting old
 files, moving the bundled files into the flask app, updating all the links to static files (a.k.a.
 "assets" in Vite land) within the code to work on a flask app, and sorting it as intended. Once
-you've done this you can just set up a simple view (like at top of this README) and it should work.
+you've done this you can just set up a simple view (like at the top of this README) and it should work.
 
 Note to run the Flask server get out of the "svelte" directory, set some environment variables
 `set FLASK_APP=flask-app` (this one's also required for the build command), `set FLASK_ENV=development`,
 and then `flask run`.
+
+### Running it (CMD)
+
+```cmd
+git clone https://github.com/martinm07/flask-svelte-template.git
+cd flask-svelte-template
+py -3 -m venv venv
+venv\Scripts\activate
+pip install Flask
+set FLASK_APP=flask-app
+set FLASK_ENV=development
+cd svelte
+npm install
+npm run build
+cd ..
+flask run
+```
