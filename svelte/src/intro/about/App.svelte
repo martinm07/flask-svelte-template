@@ -1,8 +1,8 @@
 <script lang="ts">
   import "./style.css";
   import "./../privacy/style2.css";
-  import inkling from "./inkling/inkling_pink.jpg";
-  import disgust from "./disgust.png";
+  import landscape from "./landscape/img2.jpg";
+  import book from "./img1.png";
 
   let count = $state(0);
   let value = $state("Booyah");
@@ -16,8 +16,8 @@
 <button onclick={increment}>clicks: {count}</button>
 <input bind:value type="text" />
 <h1>{value}</h1>
-<img src={inkling} alt="" />
-<img src={disgust} alt="" />
+<img src={landscape} alt="" />
+<img src={book} alt="" />
 
 <style>
   button {

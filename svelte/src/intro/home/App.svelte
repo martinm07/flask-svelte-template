@@ -1,7 +1,7 @@
 <script lang="ts">
   import "./../about/style.css";
   import "./../privacy/style2.css";
-  import purple from "./disgust.png";
+  import forks from "./img1.png";
   let count = $state(0);
   let value = $state("Booyah");
 
@@ -14,7 +14,7 @@
 <button onclick={increment}>clicks: {count}</button>
 <input bind:value type="text" />
 <h1>{value}</h1>
-<img src={purple} alt="" />
+<img src={forks} alt="" />
 
 <style>
   h1 {

@@ -6,11 +6,11 @@ static\intro\css\about-_2x5ZmdI.css
 static\intro\css\home-B3yVXxX1.css
 static\intro\css\style-BJ48JfmO.css
 static\intro\css\style2-Cdv23_NN.css
-static\intro\img\disgust-Bw5k2QTw.png
-static\intro\img\disgust-CBQOVXVa.png
-static\intro\img\inkling\inkling_pink-B1bywl1y.jpg
-static\intro\js\about-BBpOBLUE.js
+static\intro\img\img1-Crzf8Rfq.png
+static\intro\img\img1-Dn-Tmj_v.png
+static\intro\img\landscape\img2-BjjAVCDF.jpg
+static\intro\js\about-C8XYwbtk.js
 static\intro\js\attributes-D_yGRfc4.js
-static\intro\js\home-BSqicog1.js
+static\intro\js\home-CcG3jUdI.js
 static\intro\js\privacy-D4uh8gGp.js
 static\intro\js\svelte-BBB1nuF0.js
