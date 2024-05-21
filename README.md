@@ -1,10 +1,10 @@
 ### Using the Svelte UI Framework within a Python Flask Application
 
+**This project uses the (current experimental) Svelte 5 and vite-plugin-svelte v4.**
+
 The goal here is to develop [Svelte](https://svelte.dev/) components/views using the [Vite](https://vitejs.dev/) dev server. Then, when it's time to connect
-them to the actual backend (i.e. [Flask](https://flask.palletsprojects.com/en/2.1.x/)), building and adapting to the structure of a Flask app, transpiling
-into regular Javascript and moving the bundled files into the Flask app around it (in the file tree) and
-updating the file paths in the code accordingly. This will make it as simple as hooking up the `.html` file
-like any other:
+them to the actual backend (i.e. [Flask](https://flask.palletsprojects.com/en/2.1.x/)), building and adapting to the structure of a Flask app, transpiling into regular Javascript and moving the bundled files into the Flask app around it (in the file tree).
+This will make it as simple as hooking up the `.html` file like any other:
 
 ```python
 @app.route('/about')
@@ -26,8 +26,8 @@ my-flask-app/
 |  ├─ shared/
 ├─ templates/
 │  ├─ intro/
+│  │  ├─ about.html
 │  ├─ auth/
-│  ├─ base.html
 ├─ __init__.py
 ├─ db.py
 ├─ intro.py
@@ -39,36 +39,28 @@ svelte/
 │  │  │  ├─ assets/
 │  │  │  ├─ App.svelte
 │  │  │  ├─ index.html
-│  │  │  ├─ main.js
+│  │  │  ├─ main.ts
 │  ├─ auth/
 │  ├─ shared/
-├─ vite.config.js
+├─ vite.config.ts
 ├─ package.json
 ├─ build-svelte.py
-instance/
+├─ distfiles.txt
 .gitignore
-unibeautifyrc.yaml
 ```
 
 To better sort concerns, we have general "sections" of the website, containing related pages.
 In the above example that would be "intro" and "auth", with "intro" having the "about" page.
 
-### Rules
+### Usage
 
-In `svelte/src/` the directories must be the section names, which must be the exact same names
-as the directories in `my-flask-app/templates/` which must be the same as in `my-flask-app/static/`.<br>
-In `svelte/src/<section-name>/` the directories must be the desired names of the `.html` files
-when these get built later into "templates". Within those directories can be generic filenames like
-`index.html`, `main.js`, `App.svelte`, etc. and within `assets/` you can sort and nest your files however you want (these things will get replaced when being built). Note that the Vite development server only recognizes specifically
-`index.html` as an entry point, and then for the about page it'd be `http://localhost:3000/intro/about/` (the
-trailing slash is important).<br>
-In `svelte/` all `assets` folders must always be called `assets`.<br>
-In `svelte/vite.config.js`, the `build.rollupOptions.input` object needs to contain key/value pairs
-for all the pages you want to build, where the key is the desired name of the `.html` file (exactly like
-the names of the directories within `svelte/src/<section-name>/`), and the value is the path to the
-`index.html` file. Like this:
+**Every Svelte view you develop MUST be within svelte/src under a subdirectory indicating the section name, and a sub-sub directory indicating the view's name.** Specifically, it is the `index.html` file&mdash;serving as the entry point&mdash;that must follow this rule. Nothing else technically has to, and the build step will see for itself what in the dependency graph can go under what sections.
 
-```javascript
+In the Vite development server (change directory to "svelte/" and run "npm run dev"), you can access your views as "http://localhost:5173/intro/about/" (note the trailing slash, and make sure port is correct). It will only recognize specifcally the name `index.html` as the entry point for any directory, and other parts of this project are the same. **Make sure your entry point is named `index.html`.**
+
+In `svelte/vite.config.ts`, near the top of the file you should see the definition for `entryPoints`. Make sure you modify this with whatever views you want to include in the build:
+
+```typescript
 import { defineConfig } from "vite";
 import { resolve, dirname } from "path";
 
@@ -89,16 +81,9 @@ export default defineConfig({
 });
 ```
 
-### Using it
+The build is created with "npm run build". This will place it in `svelte/dist/`, already following the structure of the Flask app thanks to `vite.config.ts`, and the `build-svelte.py` script will copy it over to `flaskapp` (or whatever you call it), deleting the old versions of file from the previous build using `distfiles.txt`, which it keeps updated automatically.
 
-The idea is to have the development of a regular Flask app, and then when you want to develop views with
-a more advanced frontend, switch to the svelte folder, where you use the Vite development server to develop
-the Svelte components. As the `package.json` defines, simply use `npm run dev` to start.<br>
-Of course during this development, the frontend will still need to communicate with a backend. This would
-typically be done with `{{ url_for() }}` to make fetch requests along with other Jinja templates, however
-we obviously don't have Jinja here, and the backend wouldn't be running (or at most on a different domain).
-There isn't much that can be done here, and you would just kind of have to pretend that such code will work
-and do development using test/placeholder values. Something like this, for example:
+The frontend still needs to communicate with the backend. One way to do this is with Jinja templating. However, that whole system is significantly neutered in this workflow. Any templating you want needs to be inside the `index.html` file, so you'd do something like this:
 
 ```html
 <head>
@@ -107,14 +92,25 @@ and do development using test/placeholder values. Something like this, for examp
 <body>
   <!-- ... -->
   <script>
-    let getUser, getNotifs, posts;
+    // We need to use globalThis because the main.js script being type="module"
+    //  means there's no other way to share information.
+    globalThis.jinjaParsed = false;
     try {
       if (!Number.parseInt("{{ 1 }}")) throw new Error("Jinja wasn't parsed.");
+      globalThis.jinjaParsed = true;
 
-      getUser = "{{ url_for('auth.get_active') }}";
-      getNotifs = "{{ url_for('blog.get_notifs', user=current_user.id) }}";
-      posts = "{{ posts }}";
+      globalThis.csrfToken = "{{ csrf_token() }}";
+      globalThis.getUser = "{{ url_for('auth.get_active') }}";
+      globalThis.getNotifs =
+        "{{ url_for('blog.get_notifs', user=current_user.id) }}";
+      globalThis.posts = "{{ posts }}";
     } catch (e) {
+      globalThis.getUser = "http://127.0.0.1:5000/auth/get_active";
+      globalThis.getNotifs = "http://127.0.0.1:5000/blog/get_notifs?user=0";
+      globalThis.posts = `[
+        { title: "Seventeen And a Half Voice Modalities", body: "..." },
+        { title: "A Triage of Spoons Indicating Water Wealth", body: "..." },
+      ]`;
       return;
     }
   </script>
@@ -122,50 +118,53 @@ and do development using test/placeholder values. Something like this, for examp
 </body>
 ```
 
-Then in your `App.svelte` you could assign test values at the top like this:
+Because the Vite dev server obviously can't process the Jinja, for development purposes you also need to provide default (mock) values. This kind of ruins the point of using url_for instead of, well, hardcoding the URLs, for example, but for things like `globalThis.posts` the benefit is in production you have 1 less additional request you're making every time someone loads the page.
 
-```javascript
-posts ??= [
-  { title: "The Philosophy of Grasshoppers", body: "..." },
-  { title: "An Adventure in Stubbornness and Ignorance", body: "..." },
-];
+Jinja isn't the only way though. The same can be done by making API endpoints on the Flask side, and using them with `fetch()` calls on the Svelte side. Note above, that when we mock `getUser` and `getNotifs` we're providing fully resolved URLs to a seperate localhost! What this implies is that during development you have two servers active simultaneously; the Vite dev server, and the Flask server (`flask run` at the project root). That way you can work on both simultaneously, making sure the two ends integrate properly. This does mean that you're making cross-origin (CORS) requests (only during development, in production it's all same-origin), which is something you need to enable explicitly for your Flask views and fetch calls. To do that there is a custom decorator and fetch function respectively you can use:
 
-// and then fetches later on as they show up:
-const res = await (getNotifs ? fetch(getNotifs) : timeout(3, ["blah blah..."]));
+```svelte
+<!-- In, for example, svelte/intro/home/App.svelte -->
+<script lang="ts">
+  import { fetch_ } from "/shared/helper";
 
-function timeout(s, data) {
-  return new Promise(function (resolve, _) {
-    setTimeout(function () {
-      resolve(data);
-    }, s * 1000);
-  });
-}
+  let value = $state("Username");
+
+  function addUser() {
+    fetch_("http://127.0.0.1:5000/add_user", {
+      method: "POST",
+      body: value,
+      headers: { "Content-Type": "text/plain" },
+    }).then((resp) => console.log(resp));
+  }
+</script>
+
+<input bind:value type="text" />
+<button onclick={addUser}>Add User!</button>
 ```
 
-This code can work in the Vite dev server and the Flask server without needing to change anything.
-Of course that doesn't forgive the fact that this is quite tedious, and the big pain point of this
-workflow, but it's the best solution I could come up with.
+```python
+# In, for example, flaskapp/home.py
+from .helper import cors_enabled
 
-Anyways, once you'd like to move your new views into the Flask server, simply run `npm run build`.
-This will build the Svelte into regular Javascript and do all the annoying stuff like deleting old
-files, moving the bundled files into the flask app, updating all the links to static files (a.k.a.
-"assets" in Vite land) within the code to work on a flask app, and sorting it as intended. Once
-you've done this you can just set up a simple view (like at the top of this README) and it should work.
+@bp.route("/add_user", methods=["OPTIONS", "POST"])
+@cors_enabled(methods=["POST"])
+def add_user():
+    username: str = request.data.decode("utf-8")
+    # Add user logic...
 
-Note to run the Flask server get out of the "svelte" directory, set some environment variables
-`set FLASK_APP=flask-app` (this one's also required for the build command), `set FLASK_ENV=development`,
-and then `flask run`.
+    return "", 201
+```
+
+There is some additional boilerplate needed in the `index.html` (specifically the `globalThis.jinjaParsed` and `globalThis.csrfToken` variable as included in the above Jinja HTML example) in order to get it to switch behaviour appropriately in production.
 
 ### Running it (CMD)
 
 ```cmd
 git clone https://github.com/martinm07/flask-svelte-template.git
 cd flask-svelte-template
-py -3 -m venv venv
-venv\Scripts\activate
-pip install Flask
-set FLASK_APP=flask-app
-set FLASK_ENV=development
+python -m venv ./venv
+venv/Scripts/activate
+pip install -r requirements.txt
 cd svelte
 npm install
 npm run build
