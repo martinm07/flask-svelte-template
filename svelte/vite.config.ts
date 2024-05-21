@@ -1,7 +1,6 @@
-import path, { resolve, dirname, parse } from "node:path";
-import { promises, readFile, readFileSync, write, writeFile } from "node:fs";
+import { resolve, dirname, parse, sep } from "node:path";
+import { promises } from "node:fs";
 import { createHash } from "crypto";
-// import { createFilter } from "@rollup/pluginutils";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
@@ -10,7 +9,6 @@ import {
   NullValue,
   GetModuleInfo,
 } from "rollup/dist/rollup.d.ts";
-import { generateAssetFileName } from "rollup/dist/shared/rollup.js";
 
 const _dirname =
   typeof __dirname !== "undefined"
@@ -20,10 +18,19 @@ const _dirname =
 const root = resolve(_dirname, "src");
 const outDir = resolve(_dirname, "dist");
 
+// IMP: Set the build's entry points here.
 const entryPoints = {
   home: resolve(root, "intro/home/index.html"),
   about: resolve(root, "intro/about/index.html"),
   privacy: resolve(root, "intro/privacy/index.html"),
+};
+
+// IMP: Want to extend output.manualChunks? Do so here!
+const manualChunks: ManualChunksOption = (
+  id,
+  { getModuleInfo, getModuleIds }
+) => {
+  return;
 };
 
 // Small string hasher, taken from https://stackoverflow.com/a/52171480/11493659
@@ -38,11 +45,6 @@ const hashCode = (s: string) => {
 const getEntryName = (entryPoint: string) =>
   entryPoint.split("/").slice(-3, -1).join("/");
 
-const mapHashName = new Map<string, string>();
-
-const manualChunks: ManualChunksOption = (id, { getModuleInfo }) => {
-  return;
-};
 let firstManualChunksCall = true;
 const manualChunksMap = new Map<string, string | NullValue>();
 function findDependentEntryPoints(id: string, getModuleInfo: GetModuleInfo) {
@@ -85,7 +87,6 @@ function getChunkName(
       const hash = hashCode(id);
       const sec = dependentEntryPoints[0].split("/").at(-3);
       const name = id.split("/").at(-1)?.split(".")[0];
-      // mapHashName.set(hash, `${sec}/${name}`);
       return { hash, name_: `${sec}/${name}` };
     }
     return {
@@ -105,28 +106,43 @@ function getChunkName(
     hash = hashCode(entryNames.join(""));
   }
   // To have a more reasonable name, we create mapping of the dependencies hash to the file name,
-  //  to be substituted in at the assetFileNames() function
-  let fileName = id.split("/").at(-1)?.split(".")[0]!;
+  //  to be substituted in at the output.assetFileNames() method
+  let fileName = parse(id).name;
   // If all the dependencies are under the same section of the folder hierarchy, we can place
   //  the bundle under that section
   const commonSection = dependentEntryPoints
     .map((id) => id.split("/").at(-3))
     .reduce((p, c) => (p === c ? p : undefined));
-  // prettier-ignore
-  // mapHashName.set(hash, `${commonSection ? commonSection + "/" : ""}${fileName}`);
-  return {hash, name_: `${commonSection ? commonSection + "/" : ""}${fileName}`};
+  return {
+    hash,
+    name_: `${commonSection ? commonSection + "/" : ""}${fileName}`,
+  };
 }
 
 function isMediaFile(name: string) {
   const path = parse(name);
   const ext = path.ext ? path.ext.replace(".", "") : name.replace(".", "");
-  // console.log(ext);
   return /png|jpe?g|svg|gif|tiff|bmp|ico|webm|mkv|flv|vob|ogv|ogg|drc|mp4|m4p|m4v/i.test(
     ext
   );
 }
-const mediaAssets = new Map();
-const mediaFiles: string[] = [];
+
+const HASH_SIZE = 8;
+function addFileHash(id: string, data: Uint8Array) {
+  const hash = createHash("sha256")
+    .update(data)
+    .digest("hex")
+    .slice(0, HASH_SIZE);
+  const path = parse(id);
+  return `${path.dir}/${path.name}${hash}${path.ext}`;
+}
+function removeFileHash(id: string) {
+  const path = parse(id);
+  return `${path.dir}/${path.name.slice(0, -HASH_SIZE)}${path.ext}`;
+}
+
+const mapHashName = new Map<string, string>();
+const mediaFiles = new Set<string>();
 const mediaSections = new Map<string, string>();
 
 export default defineConfig({
@@ -138,170 +154,47 @@ export default defineConfig({
       },
     }),
     {
-      name: "defer-asset-processing",
+      name: "get-media-section-info",
+      apply: "build",
+      // Vite requires we use "enfore: pre" to hook into resolveId
       enforce: "pre",
-      // load(id) {
-      //   // console.log(isMediaFile(id));
-      //   if (isMediaFile(id)) mediaAssets.set(id, null);
-      //   return null;
-      // },
-      // resolveFileUrl({ fileName, relativePath }) {
-      //   console.log(fileName);
-      //   if (isMediaFile(fileName)) {
-      //     mediaAssets.set(fileName, relativePath);
-      //   }
-      //   return null;
-      // },
+      // Collect all media files
       async resolveId(source, importer, options) {
-        // console.log("🎈🎈🎈");
         const resolution = await this.resolve(source, importer, options);
-        // writeFile(
-        //   "resolveIDOut.txt",
-        //   `${resolution?.id}\n`,
-        //   { flag: "a" },
-        //   (err) => true
-        // );
         if (resolution?.id && isMediaFile(resolution.id)) {
-          // const source = await promises.readFile(resolution.id);
-          // mediaAssets.set(resolution.id, source);
-          // await this.load(resolution);
+          // If the hash for this exact file has already been computed (because resolveId works
+          //  not on modules but the source code import statements this can happen) then return that.
+          const precomputedId = [...mediaFiles].find(
+            (id) => removeFileHash(id) === resolution.id
+          );
+          if (precomputedId) return precomputedId;
+
+          // Rename file to include content hash such that output.assetFileNames can distinguish
+          //  between files of an otherwise identical name in the "mediaSections" lookup
           const data = await promises.readFile(resolution.id);
-          const hash = createHash("sha256")
-            .update(data)
-            .digest("hex")
-            .slice(0, 8);
-          // const { dependentEntryPoints } = findDependentEntryPoints(
-          //   resolution.id,
-          //   this.getModuleInfo
-          // );
-          const id = `${resolution.id.split(".")[0]}${hash}.${
-            resolution.id.split(".")[1]
-          }`;
+          const id = addFileHash(resolution.id, data);
           await promises.rename(resolution.id, id);
-          // mediaSections.set(id, "");
-          mediaFiles.push(id);
+
+          mediaFiles.add(id);
           return id;
-          // return false;
         }
-        // resolution.
-        // resolution.
-        // console.log(resolution?.id);
-        // if (resolution?.id && isMediaFile(resolution.id)) mediaAssets.set()
       },
+      // Find sections of media files in buildEnd, which is executed before output.assetFileNames,
+      //  but just after the point getModuleInfo().importers/dynamicImporters are fully resolved,
+      //  allowing getChunkName() (or rather, findDependentEntryPoints()) to work.
       buildEnd() {
-        const id = Array.from(mediaSections.keys())[0];
-        // const { dependentEntryPoints } = findDependentEntryPoints(
-        //   id,
-        //   this.getModuleInfo
-        // );
-        // console.log(id);
-        // const moduleInfo = this.getModuleInfo(id);
-        // console.log(moduleInfo);
-        // console.log(dependentEntryPoints);
         for (const id of mediaFiles) {
           const chunkName = getChunkName(id, this.getModuleInfo);
-          // console.log(id, chunkName);
           if (!chunkName || !chunkName.name_.includes("/")) return;
-          mediaSections.set(
-            id.split("/").at(-1)!,
-            chunkName.name_.split("/")[0]
-          );
+          mediaSections.set(parse(id).base, chunkName.name_.split("/")[0]);
         }
       },
+      // Revert the file renames
       closeBundle() {
         for (const id of mediaFiles) {
-          promises.rename(
-            id,
-            `${id.split(".")[0].slice(0, -8)}.${id.split(".")[1]}`
-          );
+          promises.rename(id, removeFileHash(id));
         }
       },
-      // load(id) {
-      //   writeFile("loadIDOut.txt", `${id}\n`, { flag: "a" }, (err) => true);
-      // },
-
-      // generateBundle(outputOptions, bundle) {
-      //   const originalAssetFileNames = outputOptions.assetFileNames;
-      //   // console.log(mediaAssets);
-
-      //   // for (const [id, source] of mediaAssets.entries()) {
-      //   //   console.log(id, source);
-      //   //   console.log(this.getModuleInfo(<string>id));
-      //   //   this.emitFile({
-      //   //     type: "asset",
-      //   //     name: id.split("/").at(-1),
-      //   //     source,
-      //   //   });
-      //   // }
-
-      //   // Collect asset information
-      //   const assets = {};
-      //   for (const [fileName, info] of Object.entries(bundle)) {
-      //     if (info.type === "asset" && isMediaFile(info.name!)) {
-      //       assets[fileName] = info;
-
-      //       bundle[fileName].fileName = String(Math.random()).replace(".", "");
-      //       // delete bundle[fileName];
-      //       // generateAssetFileName(info.name, info.source, )
-      //       // this.emitFile({
-      //       //   type: "asset",
-      //       //   name: "NEW.png",
-      //       //   source: "",
-      //       // });
-      //     }
-      //   }
-      //   // console.log(assets);
-
-      //   // Defer the naming until after code splitting
-      //   // outputOptions.assetFileNames = (assetInfo) => {
-      //   //   console.log("BOO");
-      //   //   const originalFileName = assetInfo.name || "asset";
-      //   //   const asset = assets[originalFileName];
-
-      //   //   // if (typeof originalAssetFileNames === 'function') {
-      //   //   //   return originalAssetFileNames(assetInfo);
-      //   //   // }
-      //   //   const userNameStr =
-      //   //     typeof originalAssetFileNames === "function"
-      //   //       ? originalAssetFileNames(assetInfo)
-      //   //       : originalAssetFileNames;
-
-      //   //   // Apply any naming convention needed
-      //   //   const hash = createHash("sha256")
-      //   //     .update(asset.source)
-      //   //     .digest("hex")
-      //   //     .slice(0, 8);
-      //   //   return userNameStr
-      //   //     .replace("[name]", originalFileName)
-      //   //     .replace("[hash]", hash);
-      //   // };
-      // },
-
-      // generateBundle(outputOptions, bundle) {
-      //   // console.log("HELLO", bundle);
-      //   for (const [fileName, relativePath] of mediaAssets.entries()) {
-      //     if (typeof outputOptions.assetFileNames === "string") break;
-
-      //     const name = path.basename(fileName);
-      //     const filepath = path.dirname(fileName);
-
-      //     const newFileName = outputOptions.assetFileNames({
-      //       name,
-      //       source: "",
-      //       type: "asset",
-      //     });
-      //     const asset = bundle[fileName];
-      //     delete bundle[fileName];
-      //     asset.fileName = path.join(filepath, newFileName);
-      //     bundle[asset.fileName] = asset;
-      //     console.log("🎈🎈🎈", newFileName);
-      //     // this.emitFile({
-      //     //   type: "asset",
-      //     //   fileName: newFileName,
-      //     //   source: asset,
-      //     // });
-      //   }
-      // },
     },
   ],
   build: {
@@ -311,7 +204,9 @@ export default defineConfig({
       input: entryPoints,
       output: {
         manualChunks: (id, { getModuleInfo, getModuleIds }) => {
-          mediaSections.set("poopypooppooraceconditions", "actuallynvm");
+          // The first thing we do is generate all the outputs from the user's manualChunks
+          //  function. This is because for each module we need to know ALL the modules it's
+          //  forced to group with that we may determine a common section (or not).
           if (firstManualChunksCall) {
             for (const id of getModuleIds()) {
               manualChunksMap.set(
@@ -319,20 +214,18 @@ export default defineConfig({
                 manualChunks(id, { getModuleInfo, getModuleIds })
               );
             }
-            // console.log(Array.from(getModuleIds()));
             firstManualChunksCall = false;
           }
-          // console.log(id);
-          // console.log("🎈🎈🎈");
-          if (!resolve(id).includes(resolve(root))) return;
-          // console.log("🎈🎈🎈", id.split("svelte-5-flask-demo/")[1]);
 
           const userChunk = manualChunksMap.get(id);
           if (userChunk) {
+            // Get all module IDs of the same chunk
             const idsGroup = [...manualChunksMap.entries()]
               .filter(([_, v]) => v === userChunk)
               .map(([k, _]) => k);
 
+            // A Set because we almost certainly will face an importer
+            //  importing multiple modules and we don't want duplicates.
             const allEntryPointsSet = new Set<string>();
             for (const id of idsGroup) {
               const { dependentEntryPoints } = findDependentEntryPoints(
@@ -353,128 +246,64 @@ export default defineConfig({
             return `${commonSec}/${userChunk}`;
           }
 
-          const extType = id.split(".").at(-1)!;
-          const isMedia =
-            /png|jpe?g|svg|gif|tiff|bmp|ico|webm|mkv|flv|vob|ogv|ogg|drc|mp4|m4p|m4v/i.test(
-              extType
-            );
-          // console.log("💎💎💎", extType, isMedia);
+          // Only worry about files under src/
+          if (!resolve(id).includes(resolve(root))) return;
 
           // This also includes the style tag of Svelte files, which are emitted seperately and
           //  end with "?svelte&type=style&lang.css"
           if (id.endsWith(".css")) {
+            // This generates a hash that will group all CSS modules that have the same dependencies
+            //   (account for how dynamic imports don't allow grouping).
+            // It also generates a sensible file name (one chosen arbitrarily from the bundle)
+            //   and under a common section if there is one. This better name can be mapped to from the
+            //   hash in the output.assetFileNames method.
+            // NOTE, Because CSS files engage in code splitting,
+            //   the assetFileNames method for CSS modules must execute after these manualChunks calls.
+            //   However, no other asset I'm aware of does this by Rollup/Vite, and so assetFileNames executes BEFORE.
+            //   That's why they can't be handled here and must be done with a custom plugin.
             const chunkName = getChunkName(id, getModuleInfo);
             if (!chunkName) return;
             const { hash, name_ } = chunkName;
             if (!hash) return name_;
             mapHashName.set(hash, name_);
             return hash;
-          } else if (isMedia) {
-            const chunkName = getChunkName(id, getModuleInfo);
-            if (!chunkName) return;
-            // const data = readFileSync(id);
-            // // console.log(JSON.stringify(data));
-            // const name = id.split("/").at(-1)!.split(".")[0];
-            // // writeFile(
-            // //   `manualChunksOut${name}.txt`,
-            // //   JSON.stringify(data),
-            // //   (err) => true
-            // // );
-            // console.log(chunkName.name_, mediaSections);
-            // mediaSections.set(JSON.stringify(data), chunkName.name_);
-            // mediaSections.set(
-            //   JSON.stringify(data).slice(0, 100),
-            //   chunkName.name_
-            // );
-            mediaSections.set("poopypooppooraceconditions", chunkName.name_);
-            // console.log(mediaSections);
           }
-
-          //
-          //
-          // if (!id.includes("node_modules")) {
-          // if (id.includes("inkling_pink")) {
-          //   const info = getModuleInfo(id)!;
-          //   console.log(info);
-          //   console.log("AST:", info.ast);
-          //   console.log(
-          //     "Dynamically Imported ID Resolutions:",
-          //     info.dynamicallyImportedIdResolutions
-          //   );
-          //   console.log("Dynamic Importers:", info.dynamicImporters);
-          //   console.log("Exported Bindings:", info.exportedBindings);
-          //   console.log("Exports:", info.exports);
-          //   console.log("Has Default Export:", info.hasDefaultExport);
-          //   console.log(
-          //     "implicitlyLoadedAfterOneOf:",
-          //     info.implicitlyLoadedAfterOneOf
-          //   );
-          //   console.log("implicitlyLoadedBefore:", info.implicitlyLoadedBefore);
-          //   console.log("importedIdResolutions:", info.importedIdResolutions);
-          //   console.log("importedIds:", info.importedIds);
-          //   console.log("importers:", info.importers);
-          //   console.log("isIncluded", info.isIncluded);
-          // }
-          // } else if (id.includes("svelte-5-flask-demo/"))
-          //     console.log("🎈🎈🎈", id.split("svelte-5-flask-demo/")[1]);
-          //   else console.log("🎈🎈🎈", id);
-          // }
-          // if (id.includes("node_modules")) {
-          //   return "vendor";
-          // }
-
-          // const dependentEntryPoints: string[] = [];
-          // const idsToHandle = new Set(getModuleInfo(id)?.dynamicImporters);
-
-          // for (const moduleId of idsToHandle) {
-          //   const { isEntry, dynamicImporters, importers } =
-          //     getModuleInfo(moduleId)!;
-          //   if (isEntry || dynamicImporters.length > 0)
-          //     dependentEntryPoints.push(moduleId);
-
-          //   for (const importerId of importers) idsToHandle.add(importerId);
-          // }
         },
         assetFileNames: (assetInfo) => {
-          // console.log("💎💎💎");
-          // assetInfo.source;
-          // console.log(`Name: "${assetInfo.name}"  Type: "${assetInfo.type}"`);
-          // const extType = assetInfo.name!.split(".").at(-1)!;
-          // const isMedia =
-          //   /png|jpe?g|svg|gif|tiff|bmp|ico|webm|mkv|flv|vob|ogv|ogg|drc|mp4|m4p|m4v/i.test(
-          //     extType
-          //   );
-          if (assetInfo.name && isMediaFile(assetInfo.name)) {
-            console.log("💎💎💎");
-            console.log(mediaSections, mediaSections.get(assetInfo.name));
-            console.log(assetInfo.name);
-            // console.log("HELLO!");
-            // const data = readFileSync(
-            //   "C:/Users/marti/OneDrive/Desktop/Martin/projects/misc/svelte-5-flask-demo/svelte3/src/intro/about/inkling_pink.jpg"
-            // );
-            // console.log(data.buffer.slice(0, 100));
-            // console.log(assetInfo.source.slice(0, 100));
-            // console.log(data.equals(<Uint8Array>assetInfo.source));
-            // console.log(mediaSections);
-            // writeFile(
-            //   `assetFileNamesOut${assetInfo.name?.split(".")[0]}.txt`,
-            //   JSON.stringify(Array.from(mediaSections.entries())),
-            //   (err) => true
-            // );
-            // console.log(JSON.stringify(assetInfo.source));
-            // console.log(mediaSections.get(JSON.stringify(assetInfo.source)));
-            const secName = mediaSections.get(assetInfo.name);
-            const origName = assetInfo.name.split(".")[0].slice(0, -8);
-            return `${secName ? secName + "/" : ""}${origName}-[hash][extname]`;
+          if (!assetInfo.name) {
+            console.warn("Asset without a name. Received object: " + assetInfo);
+            return "[name]-[hash][extname]";
           }
-          if (assetInfo.name && mapHashName.get(assetInfo.name.split(".")[0]))
-            return `${mapHashName.get(
-              assetInfo.name.split(".")[0]
-            )}-[hash][extname]`;
+
+          let extType = parse(assetInfo.name).ext.slice(1);
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
+            extType = "img";
+          } else if (
+            /webm|mkv|flv|vob|ogv|ogg|drc|mp4|m4p|m4v/i.test(extType)
+          ) {
+            extType = "vid";
+          }
+
+          if (isMediaFile(assetInfo.name)) {
+            const sec = mediaSections.get(assetInfo.name) || "shared";
+            const origName = parse(removeFileHash(assetInfo.name)).name;
+
+            return `static/${sec}/${extType}/${origName}-[hash][extname]`;
+          }
+
+          let mapReturn = mapHashName.get(parse(assetInfo.name).name);
+          if (!mapReturn && extType === "css") mapReturn = assetInfo.name;
+          if (mapReturn) {
+            const sec = parse(mapReturn).dir || "shared";
+            const origName = parse(mapReturn).name;
+
+            return `static/${sec}/${extType}/${origName}-[hash][extname]`;
+          }
+
+          console.log(assetInfo.name);
           return "[name]-[hash][extname]";
         },
         chunkFileNames: (chunkInfo) => {
-          // console.log(chunkInfo);
           if (
             chunkInfo.moduleIds.some(
               (id) =>
@@ -482,9 +311,14 @@ export default defineConfig({
                 resolve(_dirname, "node_modules", "svelte/src/version.js")
             )
           )
-            return "svelte-[hash].js";
-          // console.log(chunkInfo);
-          return "[name].js";
+            return "static/shared/js/svelte-[hash].js";
+
+          return "static/shared/js/[name]-[hash].js";
+        },
+        entryFileNames: (entryInfo) => {
+          const sec = entryPoints[entryInfo.name].split(sep).at(-3);
+          const name = entryPoints[entryInfo.name].split(sep).at(-2);
+          return `static/${sec}/js/${name}-[hash].js`;
         },
       },
     },
