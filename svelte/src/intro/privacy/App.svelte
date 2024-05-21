@@ -1,7 +1,6 @@
 <script lang="ts">
-  import "./../about/style.css";
-  import "./../privacy/style2.css";
-  import purple from "./disgust.png";
+  import "./style2.css";
+  // import "./../about/style.css";
   let count = $state(0);
   let value = $state("Booyah");
 
@@ -10,11 +9,10 @@
   }
 </script>
 
-<h1>Home</h1>
+<h1>Privacy</h1>
 <button onclick={increment}>clicks: {count}</button>
 <input bind:value type="text" />
 <h1>{value}</h1>
-<img src={purple} alt="" />
 
 <style>
   h1 {

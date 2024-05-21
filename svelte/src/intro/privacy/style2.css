@@ -1,0 +1,8 @@
+input:active {
+  border-radius: 0;
+  background-color: #000;
+  color: #fff;
+  padding: 10px 30px;
+  font-weight: bold;
+  font-size: 200%;
+}
