@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    "paths": {
+      "/*": ["./src/*"]
+    },
     "target": "ES2020",
     "useDefineForClassFields": true,
     "module": "ESNext",
@@ -19,5 +22,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
+  "files": ["src/global.d.ts"],
   "include": ["src"]
 }

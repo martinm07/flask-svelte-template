@@ -9,8 +9,8 @@ static\intro\css\style2-Cdv23_NN.css
 static\intro\img\img1-Crzf8Rfq.png
 static\intro\img\img1-Dn-Tmj_v.png
 static\intro\img\landscape\img2-BjjAVCDF.jpg
-static\intro\js\about-C8XYwbtk.js
+static\intro\js\about-2b_-HJWO.js
 static\intro\js\attributes-D_yGRfc4.js
-static\intro\js\home-CcG3jUdI.js
-static\intro\js\privacy-D4uh8gGp.js
-static\intro\js\svelte-BBB1nuF0.js
+static\intro\js\home-BCjMGlfX.js
+static\intro\js\privacy-rPDHxIdk.js
+static\intro\js\svelte-Deeo1CHF.js

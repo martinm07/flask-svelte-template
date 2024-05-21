@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request
 
 from .extensions import db
+from .helper import cors_enabled
 from .models import User
 
 bp = Blueprint("home", __name__)
@@ -11,7 +12,8 @@ def index():
     return "HEllo"
 
 
-@bp.route("/add_user", methods=["POST"])
+@bp.route("/add_user", methods=["OPTIONS", "POST"])
+@cors_enabled(methods=["POST"])
 def add_user():
     username: str = request.data.decode("utf-8")
 

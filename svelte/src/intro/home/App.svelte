@@ -1,12 +1,22 @@
 <script lang="ts">
-  import "./../about/style.css";
-  import "./../privacy/style2.css";
+  import "/intro/about/style.css";
+  import "/intro/privacy/style2.css";
+  import { fetch_ } from "/shared/helper";
+
   import forks from "./img1.png";
+
   let count = $state(0);
   let value = $state("Booyah");
-
   function increment() {
     count += 1;
+  }
+
+  function addUser() {
+    fetch_("http://127.0.0.1:5000/add_user", {
+      method: "POST",
+      body: value,
+      headers: { "Content-Type": "text/plain" },
+    }).then((resp) => console.log(resp));
   }
 </script>
 
@@ -14,6 +24,8 @@
 <button onclick={increment}>clicks: {count}</button>
 <input bind:value type="text" />
 <h1>{value}</h1>
+<button onclick={addUser}>Add User!</button>
+
 <img src={forks} alt="" />
 
 <style>

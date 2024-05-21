@@ -25,6 +25,9 @@ def create_app(test_config=None):
         app.config.update(test_config)
 
     db.init_app(app)
+    with app.app_context():
+        db.create_all()
+
     migrate.init_app(app)
     csrf.init_app(app)
 

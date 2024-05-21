@@ -8,6 +8,16 @@
   </head>
   <body>
     <div id="app"></div>
+    <script>
+      globalThis.jinjaParsed = false;
+      try {
+        if (!Number.parseInt("{{ 1 }}"))
+          throw new Error("Jinja wasn't parsed.");
+        globalThis.jinjaParsed = true;
+
+        globalThis.csrfToken = "{{ csrf_token() }}";
+      } catch {}
+    </script>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>
