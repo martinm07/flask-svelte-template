@@ -1,4 +1,5 @@
 venv/
+.env
 
 *.pyc
 __pycache__/
@@ -14,26 +15,25 @@ build/
 *.egg-info/
 
 # Logs
-svelte/logs
-svelte/*.log
-svelte/npm-debug.log*
-svelte/yarn-debug.log*
-svelte/yarn-error.log*
-svelte/pnpm-debug.log*
-svelte/lerna-debug.log*
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-svelte/node_modules
-svelte/dist
-svelte/dist-ssr
-svelte/*.local
+node_modules/
+dist
+dist-ssr
+*.local
 
 # Editor directories and files
-svelte/.vscode/*
-svelte/!.vscode/extensions.json
-svelte/.idea
-svelte/.DS_Store
-svelte/*.suo
-svelte/*.ntvs*
-svelte/*.njsproj
-svelte/*.sln
-svelte/*.sw?
+.vscode
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
