@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, render_template, request
 
 from .extensions import db
 from .models import User
@@ -20,3 +20,18 @@ def add_user():
     db.session.commit()
 
     return "", 201
+
+
+@bp.route("/home")
+def home():
+    return render_template("intro/home.html")
+
+
+@bp.route("/about")
+def about():
+    return render_template("intro/about.html")
+
+
+@bp.route("/privacy")
+def privacy():
+    return render_template("intro/privacy.html")

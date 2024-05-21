@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "buildshort": "tsc && vite build",
+    "moveflask": "python build-svelte.py",
+    "build": "tsc && vite build && python build-svelte.py",
     "preview": "vite preview"
   },
   "devDependencies": {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import "./style.css";
   import "./../privacy/style2.css";
-  import inkling from "./inkling_pink.jpg";
+  import inkling from "./inkling/inkling_pink.jpg";
   import disgust from "./disgust.png";
 
   let count = $state(0);
