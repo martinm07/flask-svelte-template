@@ -370,7 +370,6 @@ export default defineConfig({
           }
         },
         assetFileNames: (assetInfo) => {
-          // console.log(assetInfo.name);
           if (!assetInfo.name) {
             console.warn("Asset without a name. Received object: " + assetInfo);
             return "[name]-[hash][extname]";
