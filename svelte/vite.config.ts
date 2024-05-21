@@ -18,7 +18,7 @@ const _dirname =
 const root = resolve(_dirname, "src");
 const outDir = resolve(_dirname, "dist");
 
-// IMP: Set the build's entry points here.
+// IMP: Set the build's entry points here. The key names don't matter
 const entryPoints = {
   home: resolve(root, "intro/home/index.html"),
   about: resolve(root, "intro/about/index.html"),
@@ -80,7 +80,6 @@ function getChunkName(
     getModuleInfo
   );
 
-  // console.log(dependentEntryPoints);
   if (dependentEntryPoints.length === 0) return;
   if (dependentEntryPoints.length === 1) {
     if (isDynamic) {
