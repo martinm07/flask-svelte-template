@@ -130,7 +130,7 @@ Jinja isn't the only way though. The same can be done by making API endpoints on
   let value = $state("Username");
 
   function addUser() {
-    fetch_("http://127.0.0.1:5000/add_user", {
+    fetch_("/add_user", {
       method: "POST",
       body: value,
       headers: { "Content-Type": "text/plain" },

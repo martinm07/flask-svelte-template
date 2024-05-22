@@ -1,5 +1,6 @@
 venv/
 .env
+!svelte/src/.env
 
 *.pyc
 __pycache__/
