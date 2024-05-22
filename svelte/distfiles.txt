@@ -11,6 +11,6 @@ static\intro\img\img1-Dn-Tmj_v.png
 static\intro\img\landscape\img2-BjjAVCDF.jpg
 static\intro\js\about-2b_-HJWO.js
 static\intro\js\attributes-D_yGRfc4.js
-static\intro\js\home-BCjMGlfX.js
+static\intro\js\home-Hd0n7P7f.js
 static\intro\js\privacy-rPDHxIdk.js
 static\intro\js\svelte-Deeo1CHF.js
