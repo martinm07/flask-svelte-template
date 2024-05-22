@@ -25,6 +25,7 @@ def create_app(test_config=None):
         app.config.update(test_config)
 
     db.init_app(app)
+    # IMP: Remove this if you have a real database hooked up!
     with app.app_context():
         db.create_all()
 
