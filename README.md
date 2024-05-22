@@ -56,7 +56,7 @@ In the above example that would be "intro" and "auth", with "intro" having the "
 
 **Every Svelte view you develop MUST be within svelte/src under a subdirectory indicating the section name, and a sub-sub directory indicating the view's name.** Specifically, it is the `index.html` file&mdash;serving as the entry point&mdash;that must follow this rule. Nothing else technically has to, and the build step will see for itself what in the dependency graph can go under what sections.
 
-In the Vite development server (change directory to "svelte/" and run "npm run dev"), you can access your views as "http://localhost:5173/intro/about/" (note the trailing slash, and make sure port is correct). It will only recognize specifcally the name `index.html` as the entry point for any directory, and other parts of this project are the same. **Make sure your entry point is named `index.html`.**
+In the Vite development server (change directory to "svelte/" and run "npm run dev"), you can access your views as "http://localhost:5173/intro/about/" (note the trailing slash, and make sure port is correct). It will only recognize specifically the name `index.html` as the entry point for any directory, and other parts of this project are the same. **Make sure your entry point is named `index.html`.**
 
 In `svelte/vite.config.ts`, near the top of the file you should see the definition for `entryPoints`. Make sure you modify this with whatever views you want to include in the build:
 
@@ -81,7 +81,7 @@ export default defineConfig({
 });
 ```
 
-The build is created with "npm run build". This will place it in `svelte/dist/`, already following the structure of the Flask app thanks to `vite.config.ts`, and the `build-svelte.py` script will copy it over to `flaskapp` (or whatever you call it), deleting the old versions of file from the previous build using `distfiles.txt`, which it keeps updated automatically.
+The build is created with "npm run build". This will place it in `svelte/dist/`, already following the structure of the Flask app thanks to `vite.config.ts`, and the `build-svelte.py` script will copy it over to `flaskapp` (or whatever you call it), deleting the old versions of files from the previous build using `distfiles.txt`, which it keeps updated automatically.
 
 The frontend still needs to communicate with the backend. One way to do this is with Jinja templating. However, that whole system is significantly neutered in this workflow. Any templating you want needs to be inside the `index.html` file, so you'd do something like this:
 
@@ -92,7 +92,7 @@ The frontend still needs to communicate with the backend. One way to do this is 
 <body>
   <!-- ... -->
   <script>
-    // We need to use globalThis because the main.js script being type="module"
+    // We need to use globalThis because the main.ts script being type="module"
     //  means there's no other way to share information.
     globalThis.jinjaParsed = false;
     try {
@@ -114,7 +114,7 @@ The frontend still needs to communicate with the backend. One way to do this is 
       return;
     }
   </script>
-  <script type="module" src="./main.js"></script>
+  <script type="module" src="./main.ts"></script>
 </body>
 ```
 
